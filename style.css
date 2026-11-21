@@ -452,6 +452,79 @@ body.no-animations *, body.no-animations *::before, body.no-animations *::after 
   .tile .tile-timer { font-size: 9px; }
 }
 
+/* ============================================================
+   v3 — изумруды и магазин улучшений
+   ============================================================ */
+
+.hud-item.emerald strong { color: #b9f2ff; }
+.hud-item { padding: 7px 4px; gap: 4px; font-size: 13px; }
+.hud-item span { font-size: 14px; }
+
+.emerald-balance {
+  background: linear-gradient(135deg, #00838f, #26c6da);
+  color: #fff;
+  border-radius: var(--radius);
+  padding: 16px;
+  text-align: center;
+  font-size: 26px;
+  font-weight: 900;
+  box-shadow: 0 6px 16px rgba(0, 150, 170, .3);
+  margin-bottom: 14px;
+  text-shadow: 0 2px 4px rgba(0,0,0,.2);
+}
+
+.emerald-banner {
+  background: linear-gradient(135deg, #e0f7fa, #b2ebf2);
+  border: 1px solid #80deea;
+  border-radius: 14px;
+  padding: 11px 13px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #006064;
+  text-align: center;
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+.emerald-banner.done { background: linear-gradient(135deg, #e8f5e9, #c8e6c9); border-color: #a5d6a7; color: #1b5e20; }
+
+.upgrade-list { display: grid; gap: 10px; }
+.upgrade-card {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 13px;
+  box-shadow: var(--shadow);
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+}
+.upgrade-icon { font-size: 30px; width: 38px; text-align: center; flex: 0 0 auto; }
+.upgrade-info { flex: 1; min-width: 0; }
+.upgrade-top { display: flex; align-items: center; gap: 8px; }
+.upgrade-name { font-size: 14px; font-weight: 800; flex: 1; }
+.upgrade-lvl { font-size: 10px; font-weight: 800; color: var(--green-dark); background: var(--green-light); border-radius: 99px; padding: 3px 7px; white-space: nowrap; }
+.upgrade-desc { font-size: 12px; color: var(--muted); line-height: 1.45; margin-top: 5px; }
+.upgrade-detail { font-size: 11px; color: #00838f; margin-top: 5px; }
+.upgrade-buy {
+  flex: 0 0 auto;
+  border: none;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #00acc1, #0097a7);
+  color: #fff;
+  font-weight: 800;
+  font-size: 12px;
+  padding: 10px 11px;
+  cursor: pointer;
+  min-width: 66px;
+}
+.upgrade-buy:active { transform: scale(.95); }
+.upgrade-buy:disabled { background: #cfd8dc; color: #90a4ae; cursor: not-allowed; }
+.upgrade-card.maxed { border-left: 4px solid #26c6da; }
+.upgrade-card.locked { opacity: .65; }
+
+.tab small { font-size: 8px; }
+.tab span { font-size: 18px; }
+.hud-item strong { font-size: 13px; }
+
 /* ---------- ПК: чуть больше воздуха ---------- */
 @media (min-width: 600px) {
   .tile .tile-emoji { font-size: 40px; }
