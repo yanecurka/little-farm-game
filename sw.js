@@ -4,7 +4,7 @@
    без интернета после первого запуска.
    ============================================================ */
 
-const CACHE_NAME = 'little-farm-v4';
+const CACHE_NAME = 'little-farm-v5';
 
 const APP_SHELL = [
   './',
