@@ -95,4 +95,18 @@ powershell -ExecutionPolicy Bypass -File .\deploy-github.ps1 -Token <ВАШ_ТО
 
 Токен — classic PAT с правом `repo`. После деплоя токен можно отозвать.
 
-Альтернативные варианты упаковки в APK: Capacitor, Android WebView, .NET MAUI Blazor — игровую логику можно переиспользовать почти без изменений.
+## Android APK
+
+APK собирается в облаке через GitHub Actions (`.github/workflows/build-apk.yml`) и публикуется в Release:
+https://github.com/yanecurka/little-farm-game/releases/latest
+
+**Установка:**
+1. Скачай `app-debug.apk` на телефон.
+2. Открой файл — Android попросит разрешить установку из неизвестных источников (включи один раз для файлового менеджера/браузера).
+3. Установи и запусти «Маленькую Ферму».
+
+Приложение работает офлайн: все файлы игры упакованы внутрь APK, интернет не нужен. Сохранение хранится внутри приложения.
+
+**Для Google Play:** debug-APK нельзя выложить в магазин. Для публикации нужен аккаунт разработчика Google Play и release-сборка в формате AAB, подписанная твоим собственным ключом (keystore). Workflow можно адаптировать под `assembleRelease`/`bundleRelease` после создания ключа.
+
+Альтернативные варианты упаковки: Android WebView, .NET MAUI Blazor — игровую логику можно переиспользовать почти без изменений.
