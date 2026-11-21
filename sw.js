@@ -4,18 +4,18 @@
    без интернета после первого запуска.
    ============================================================ */
 
-const CACHE_NAME = 'little-farm-v6';
+const CACHE_NAME = 'little-farm-v7';
 
 const APP_SHELL = [
   './',
-  './index.html?v=3',
-  './style.css?v=3',
-  './data.js?v=3',
-  './game.js?v=3',
-  './manifest.webmanifest?v=3',
+  './index.html?v=4',
+  './style.css?v=4',
+  './data.js?v=4',
+  './game.js?v=4',
+  './manifest.webmanifest?v=4',
   './robots.txt',
-  './icon-192.png?v=3',
-  './icon-512.png?v=3',
+  './icon-192.png?v=4',
+  './icon-512.png?v=4',
 ];
 
 self.addEventListener('install', event => {
