@@ -7,6 +7,8 @@ const SAVE_KEY = 'little_farm_save_v2';
 const OLD_KEY = 'little_farm_save_v1';
 const ENERGY_REGEN_MS = 20000;   // +1 энергия каждые 20 секунд
 const MAX_TASKS = 3;
+const UPGRADE_DAILY_REWARD = 5;   // изумруды за все задания дня
+const AUTO_INTERVAL = 5000;       // частота автосбора, мс
 
 let state = null;
 let selectedSeed = 'carrot';
@@ -71,6 +73,18 @@ function formatTime(ms) {
 }
 const formatDuration = sec => sec < 60 ? `${sec} сек` : `${Math.floor(sec / 60)} мин`;
 
+// === Уровни улучшений и производные параметры ===
+const upgradeLevel = id => Number(state.upgrades[id]) || 0;
+const totalUnlocked = () => Math.min(16, state.unlockedTiles + upgradeLevel('fieldSlots') * 2);
+function energyPeriod() {
+  const l = upgradeLevel('energyRegen');
+  return l >= 2 ? 5000 : (l === 1 ? 10000 : ENERGY_REGEN_MS);
+}
+function recalcMaxEnergy() {
+  state.maxEnergy = 100 + (state.level - 1) * 10 + upgradeLevel('maxEnergy') * 30;
+  state.energy = Math.min(state.energy, state.maxEnergy);
+}
+
 // ---------- Состояние ----------
 function createNewGame() {
   return {
@@ -84,13 +98,16 @@ function createNewGame() {
     priceDay: 1,
     xp: 0,
     level: 1,
+    emeralds: 0,
+    emeraldRewardDay: 0,
+    upgrades: {},
     tiles: Array.from({ length: 16 }, () => ({ crop: null, readyAt: 0, plantedAt: 0, waterCount: 0, fertilized: false })),
     unlockedTiles: 6,
     inventory: { seeds: {}, products: {}, items: {} },
     animals: [],
     tasks: [],
     achievements: [],
-    stats: { harvested: 0, earned: 0, spent: 0, planted: 0, daysPlayed: 1, waterings: 0, instantGrows: 0, tasksDone: 0 },
+    stats: { harvested: 0, earned: 0, spent: 0, planted: 0, daysPlayed: 1, waterings: 0, instantGrows: 0, tasksDone: 0, emeraldsEarned: 0 },
     settings: { sound: true, animations: true },
     tutorialSeen: false,
     lastEnergyAt: now(),
@@ -117,6 +134,9 @@ function normalize(data) {
   };
   s.stats = { ...f.stats, ...(data.stats || {}) };
   s.settings = { ...f.settings, ...(data.settings || {}) };
+  s.emeralds = Number(data.emeralds) || 0;
+  s.emeraldRewardDay = Number(data.emeraldRewardDay) || 0;
+  s.upgrades = (data.upgrades && typeof data.upgrades === 'object') ? data.upgrades : {};
   s.animals = Array.isArray(data.animals) ? data.animals : [];
   s.tasks = Array.isArray(data.tasks) ? data.tasks : [];
   s.achievements = Array.isArray(data.achievements) ? data.achievements : [];
@@ -219,6 +239,7 @@ function showHelp() {
         <li>🐔 <strong>Животные:</strong> покормите — через таймер дадут продукцию. Соберите и продайте.</li>
         <li>⚡ <strong>Энергия</strong> восстанавливается сама: +1 каждые 20 секунд. Кнопка «Отдых» восстанавливает её полностью и меняет погоду с ценами.</li>
         <li>📋 <strong>Задания</strong> и 🏆 достижения дают монеты и опыт. Уровень увеличивает запас энергии.</li>
+        <li>💎 <strong>Изумруды</strong> — премиальная валюта, но она полностью бесплатна: за все задания дня (+5), за уровни и достижения. Тратьте её во вкладке «Улучш.» на автосбор, автокорм, быструю энергию и другое.</li>
       </ul>
       <p>📈 Цены на продукцию меняются каждый день — продавайте выгоднее!</p>`,
     actions: [{ label: 'Понятно!', cls: 'btn-primary' }],
@@ -231,13 +252,15 @@ function gainXp(n) {
   while (state.xp >= state.level * 100) {
     state.xp -= state.level * 100;
     state.level++;
-    state.maxEnergy += 10;
+    recalcMaxEnergy();
     state.energy = state.maxEnergy;
+    state.emeralds += 2;
+    state.stats.emeraldsEarned += 2;
     const bonus = 50 * state.level;
     state.coins += bonus;
     state.stats.earned += bonus;
     playSound('achievement');
-    toast(`🎉 Уровень ${state.level}! +10⚡ и +${bonus}🪙`, 'success');
+    toast(`🎉 Уровень ${state.level}! +10⚡, +${bonus}🪙, +2💎`, 'success');
   }
 }
 
@@ -248,6 +271,8 @@ function checkAchievements() {
     if (unlocked.has(id)) return;
     state.achievements.push(id);
     unlocked.add(id);
+    state.emeralds += 1;
+    state.stats.emeraldsEarned += 1;
     playSound('achievement');
     const a = getAchievement(id);
     if ($('#modal-overlay').classList.contains('hidden')) {
@@ -265,7 +290,7 @@ function checkAchievements() {
   if (state.coins >= 1000) unlock('coins_1000');
   const plantedTypes = new Set(state.tiles.filter(t => t.crop).map(t => t.crop));
   if (plantedTypes.size >= CROPS.length) unlock('all_crops');
-  if (state.unlockedTiles >= 16 && state.tiles.filter(t => t.crop).length >= 16) unlock('full_field');
+  if (totalUnlocked() >= 16 && state.tiles.filter(t => t.crop).length >= 16) unlock('full_field');
   if (s.instantGrows >= 10) unlock('instant_10');
   if (s.tasksDone >= 10) unlock('tasks_10');
 }
@@ -302,6 +327,39 @@ function claimTask(uid) {
   gainXp(t.xp);
   playSound('coin');
   toast(`📋 Задание выполнено: +${t.coins}🪙 +${t.xp}XP`, 'success');
+  if (state.tasks.every(x => x.claimed) && state.emeraldRewardDay !== state.day) {
+    state.emeraldRewardDay = state.day;
+    state.emeralds += UPGRADE_DAILY_REWARD;
+    state.stats.emeraldsEarned += UPGRADE_DAILY_REWARD;
+    setTimeout(() => toast(`💎 Все задания дня выполнены! +${UPGRADE_DAILY_REWARD} изумрудов`, 'success'), 500);
+    playSound('achievement');
+  }
+  checkAchievements();
+  commit();
+}
+
+// ---------- Покупка улучшений за изумруды ----------
+function buyUpgrade(id) {
+  const up = getUpgrade(id);
+  if (!up) return;
+  const lvl = upgradeLevel(id);
+  if (lvl >= up.costs.length) { toast('Улучшение уже максимального уровня'); return; }
+  if (up.requires && upgradeLevel(up.requires) < 1) {
+    toast(`Сначала купите: ${getUpgrade(up.requires).name}`, 'error'); playSound('error'); return;
+  }
+  const cost = up.costs[lvl];
+  if (state.emeralds < cost) { toast(`Не хватает изумрудов (нужно ${cost}💎)`, 'error'); playSound('error'); return; }
+  state.emeralds -= cost;
+  state.upgrades[id] = lvl + 1;
+  recalcMaxEnergy();
+  if (id === 'growthSpeed') {
+    const factor = (1 + .15 * lvl) / (1 + .15 * (lvl + 1));
+    state.tiles.forEach(t => {
+      if (t.crop && t.readyAt > now()) t.readyAt = now() + tileRemaining(t) * factor;
+    });
+  }
+  playSound('achievement');
+  toast(`💎 ${up.name} — уровень ${lvl + 1}!`, 'success');
   checkAchievements();
   commit();
 }
@@ -322,11 +380,11 @@ function spendCoins(n) {
 
 function regenEnergy() {
   if (state.energy >= state.maxEnergy) { state.lastEnergyAt = now(); return; }
-  const periods = Math.floor((now() - state.lastEnergyAt) / ENERGY_REGEN_MS);
+  const periods = Math.floor((now() - state.lastEnergyAt) / energyPeriod());
   if (periods <= 0) return;
   const add = Math.min(periods, state.maxEnergy - state.energy);
   state.energy += add;
-  state.lastEnergyAt = state.energy >= state.maxEnergy ? now() : state.lastEnergyAt + add * ENERGY_REGEN_MS;
+  state.lastEnergyAt = state.energy >= state.maxEnergy ? now() : state.lastEnergyAt + add * energyPeriod();
   saveGame();
 }
 
@@ -335,15 +393,24 @@ const tileReady = t => !!t.crop && t.readyAt > 0 && t.readyAt <= now();
 const tileRemaining = t => Math.max(0, t.readyAt - now());
 const boostCost = t => Math.max(3, Math.ceil(tileRemaining(t) / 1000 / 6) + 2);
 // детерминированный бонус, чтобы панель и сбор показывали одно и то же
-const bonusYield = t => 1 + (t.fertilized ? 1 : 0) + (t.readyAt % 4 < 1 ? 1 : 0);
+const bonusYield = t => {
+  let qty = 1 + (t.fertilized ? 1 : 0) + (t.readyAt % 4 < 1 ? 1 : 0);
+  const bl = upgradeLevel('bonusYield');
+  if (bl && t.readyAt % 100 < 25 * bl) qty++;
+  return qty;
+};
 
-function plantTile(index) {
+function plantTile(index, silent = false) {
   const t = state.tiles[index];
-  if (!state.inventory.seeds[selectedSeed]) { toast(`Нет семян: ${getCrop(selectedSeed).name}. Купите в магазине`, 'error'); playSound('error'); return; }
+  if (!state.inventory.seeds[selectedSeed]) {
+    if (!silent) { toast(`Нет семян: ${getCrop(selectedSeed).name}. Купите в магазине`, 'error'); playSound('error'); }
+    return;
+  }
   if (!spendEnergy(2)) return;
   const crop = getCrop(selectedSeed);
   const weather = WEATHER.find(w => w.id === state.weather) || WEATHER[0];
-  const duration = Math.round(crop.growSeconds / weather.speed);
+  const speed = weather.speed * (1 + .15 * upgradeLevel('growthSpeed'));
+  const duration = Math.max(3, Math.round(crop.growSeconds / speed));
   state.inventory.seeds[selectedSeed]--;
   t.crop = selectedSeed;
   t.plantedAt = now();
@@ -353,15 +420,17 @@ function plantTile(index) {
   state.stats.planted++;
   gainXp(2);
   updateTask('plant', 1);
-  playSound('plant');
-  toast(`🌱 ${crop.name} — готов через ${formatDuration(duration)}`);
-  checkAchievements();
-  commit();
+  if (!silent) {
+    playSound('plant');
+    toast(`🌱 ${crop.name} — готов через ${formatDuration(duration)}`);
+    checkAchievements();
+    commit();
+  }
 }
 
 function tileClick(index) {
   const t = state.tiles[index];
-  if (index >= state.unlockedTiles) { toast('Участок закрыт — расширьте поле', 'error'); return; }
+  if (index >= totalUnlocked()) { toast('Участок закрыт — расширьте поле', 'error'); return; }
   if (!t.crop) { plantTile(index); return; }
   if (tileReady(t)) { harvestTile(index); return; }
   selectedTile = index;
@@ -425,7 +494,7 @@ function clearTile(index) {
   commit();
 }
 
-function harvestTile(index) {
+function harvestTile(index, silent = false) {
   const t = state.tiles[index];
   if (!tileReady(t)) return;
   const crop = getCrop(t.crop);
@@ -436,10 +505,12 @@ function harvestTile(index) {
   updateTask('harvest', qty);
   t.crop = null; t.readyAt = 0; t.plantedAt = 0; t.waterCount = 0; t.fertilized = false;
   if (selectedTile === index) selectedTile = -1;
-  playSound('harvest');
-  toast(`🧺 ${crop.name} ×${qty}`);
-  checkAchievements();
-  commit();
+  if (!silent) {
+    playSound('harvest');
+    toast(`🧺 ${crop.name} ×${qty}`);
+    checkAchievements();
+    commit();
+  }
 }
 
 // ---------- Магазин ----------
@@ -477,19 +548,22 @@ function buyMisc(id) {
 }
 
 // ---------- Животные ----------
-function feedAnimal(uid) {
+function feedAnimal(uid, silent = false, free = false) {
   const a = state.animals.find(x => x.uid === uid);
-  if (!a || a.fed) { toast('Животное уже сыто'); return; }
+  if (!a || a.fed) { if (!silent) toast('Животное уже сыто'); return; }
   const info = getAnimal(a.type);
-  if (!spendCoins(info.feedPrice)) return;
-  if (!spendEnergy(1)) { state.coins += info.feedPrice; return; }
+  const cost = free ? 0 : info.feedPrice;
+  if (cost && !spendCoins(cost)) return;
+  if (cost && !spendEnergy(1)) { state.coins += cost; return; }
   a.fed = true;
   a.readyAt = now() + info.produceSeconds * 1000;
   gainXp(2);
   updateTask('feed', 1);
-  playSound('feed');
-  toast(`${info.emoji} Продукция через ${formatDuration(info.produceSeconds)}`);
-  commit();
+  if (!silent) {
+    playSound('feed');
+    toast(`${info.emoji} Продукция через ${formatDuration(info.produceSeconds)}`);
+    commit();
+  }
 }
 function feedAll() {
   const hungry = state.animals.filter(a => !a.fed);
@@ -505,16 +579,19 @@ function feedAll() {
   toast(`🌾 Накормлено: ${hungry.length}`);
   commit();
 }
-function collectAnimal(uid) {
+function collectAnimal(uid, silent = false) {
   const a = state.animals.find(x => x.uid === uid);
-  if (!a || !a.readyAt || a.readyAt > now()) { toast('Пока нечего собирать — покормите животное'); return; }
+  if (!a || !a.readyAt || a.readyAt > now()) { if (!silent) toast('Пока нечего собирать — покормите животное'); return; }
   const info = getAnimal(a.type);
-  state.inventory.products[info.product] = (state.inventory.products[info.product] || 0) + 1;
+  const qty = upgradeLevel('autoCollect') >= 2 ? 2 : 1;
+  state.inventory.products[info.product] = (state.inventory.products[info.product] || 0) + qty;
   a.readyAt = 0; a.fed = false;
   gainXp(3);
-  playSound('harvest');
-  toast(`🧺 ${info.productName}`);
-  commit();
+  if (!silent) {
+    playSound('harvest');
+    toast(`🧺 ${info.productName} ×${qty}`);
+    commit();
+  }
 }
 
 // ---------- Торговля ----------
@@ -594,6 +671,50 @@ function resetGame() {
   });
 }
 
+// ---------- Автоматизация (покупается за изумруды) ----------
+const lastAuto = { harvest: 0, collect: 0, feed: 0 };
+
+function runAutoSystems() {
+  const t = now();
+  let changed = false;
+
+  if (upgradeLevel('autoHarvest') >= 1 && t - lastAuto.harvest >= AUTO_INTERVAL) {
+    const ready = state.tiles.map((tile, i) => ({ tile, i }))
+      .filter(x => x.i < totalUnlocked() && tileReady(x.tile));
+    ready.forEach(x => { harvestTile(x.i, true); changed = true; });
+    if (upgradeLevel('autoHarvest') >= 2) {
+      state.tiles.forEach((tile, i) => {
+        if (i < totalUnlocked() && !tile.crop && state.inventory.seeds[selectedSeed]) {
+          plantTile(i, true); changed = true;
+        }
+      });
+    }
+    if (ready.length) toast(`🧺 Автосбор: ${ready.length} культур`, 'success');
+    lastAuto.harvest = t;
+  }
+
+  if (upgradeLevel('autoCollect') >= 1 && t - lastAuto.collect >= AUTO_INTERVAL) {
+    const ready = state.animals.filter(a => a.readyAt && a.readyAt <= t);
+    ready.forEach(a => { collectAnimal(a.uid, true); changed = true; });
+    if (ready.length) toast(`🥚 Автосбор: ${ready.length} продуктов`, 'success');
+    lastAuto.collect = t;
+  }
+
+  if (upgradeLevel('autoFeed') >= 1 && t - lastAuto.feed >= 15000) {
+    const free = upgradeLevel('autoFeed') >= 2;
+    const hungry = state.animals.filter(a => !a.fed);
+    hungry.forEach(a => {
+      const info = getAnimal(a.type);
+      if (!free && (state.coins < info.feedPrice || state.energy < 1)) return;
+      feedAnimal(a.uid, true, free); changed = true;
+    });
+    if (hungry.length) toast(`🌾 Автокормление: ${hungry.length} животных`, 'success');
+    lastAuto.feed = t;
+  }
+
+  if (changed) commit();
+}
+
 // ---------- Тик реального времени ----------
 function updateTimers() {
   const t = now();
@@ -634,14 +755,15 @@ function updateEnergyUI() {
 function tick() {
   if (!state) return;
   regenEnergy();
-  const sig = state.tiles.map((t, i) => i < state.unlockedTiles && tileReady(t) ? '1' : '0').join('')
+  runAutoSystems();
+  const sig = state.tiles.map((t, i) => i < totalUnlocked() && tileReady(t) ? '1' : '0').join('')
     + '|' + state.animals.map(a => a.readyAt && a.readyAt <= now() ? '1' : '0').join('');
   if (sig !== lastReadySig) {
     const wasEmpty = !lastReadySig;
     lastReadySig = sig;
     renderField(); renderAnimals(); renderTilePanel();
     if (!wasEmpty) {
-      const readyCrops = state.tiles.filter((t, i) => i < state.unlockedTiles && tileReady(t)).length;
+      const readyCrops = state.tiles.filter((t, i) => i < totalUnlocked() && tileReady(t)).length;
       const readyAnimals = state.animals.filter(a => a.readyAt && a.readyAt <= now()).length;
       if (readyCrops || readyAnimals) toast(`✅ Готово к сбору: ${readyCrops} культур, ${readyAnimals} животных`);
     }
@@ -661,8 +783,9 @@ function renderHUD() {
   $('#weather-icon').textContent = w.icon;
   $('#weather-name').textContent = w.name;
   $('#weather-desc').textContent = w.desc;
-  $('#field-progress').textContent = `${state.unlockedTiles} / 16`;
-  $('#btn-expand').style.display = state.unlockedTiles >= 16 ? 'none' : '';
+  $('#field-progress').textContent = `${totalUnlocked()} / 16`;
+  $('#btn-expand').style.display = totalUnlocked() >= 16 ? 'none' : '';
+  $('#hud-emeralds').textContent = state.emeralds;
   $('#market-banner').textContent = `📈 Цены сегодня: ×${state.marketMult.toFixed(2)} ${state.marketMult >= 1 ? '↗ спрос высокий' : '↘ цены низкие'}`;
   updateEnergyUI();
 }
@@ -678,7 +801,7 @@ function renderSeedPicker() {
 
 function renderField() {
   $('#field-grid').innerHTML = state.tiles.map((t, i) => {
-    if (i >= state.unlockedTiles) return `<button class="tile locked" data-action="tile" data-index="${i}">🔒</button>`;
+    if (i >= totalUnlocked()) return `<button class="tile locked" data-action="tile" data-index="${i}">🔒</button>`;
     if (!t.crop) return `<button class="tile empty" data-action="tile" data-index="${i}" title="Пустой участок"></button>`;
     const crop = getCrop(t.crop);
     const ready = tileReady(t);
@@ -696,7 +819,7 @@ function renderField() {
 function renderTilePanel() {
   const box = $('#tile-panel');
   const t = state.tiles[selectedTile];
-  if (!t || !t.crop || selectedTile >= state.unlockedTiles) {
+  if (!t || !t.crop || selectedTile >= totalUnlocked()) {
     box.innerHTML = '<div class="tile-panel-empty">👆 Нажмите на растущее растение, чтобы поливать его, удобрять или ускорять рост за энергию</div>';
     return;
   }
@@ -811,7 +934,7 @@ function renderAchievements() {
   $('#stats-grid').innerHTML = [
     ['📅', s.daysPlayed, 'дней на ферме'], ['🧺', s.harvested, 'собрано урожаев'],
     ['⚡', s.instantGrows, 'ускорений роста'], ['📋', s.tasksDone, 'заданий выполнено'],
-    ['🪙', s.earned, 'заработано'], ['⭐', state.level, 'уровень фермера'],
+    ['🪙', s.earned, 'заработано'], ['💎', s.emeraldsEarned, 'изумрудов найдено'], ['⭐', state.level, 'уровень фермера'],
   ].map(([i, v, l]) => `<div class="stat-card"><strong>${i} ${v}</strong><small>${l}</small></div>`).join('');
 }
 
@@ -829,6 +952,39 @@ function renderQuests() {
   }).join('');
 }
 
+function renderUpgrades() {
+  $('#emerald-balance').textContent = `💎 ${state.emeralds}`;
+  const banner = $('#emerald-banner');
+  const claimed = state.tasks.filter(t => t.claimed).length;
+  const allDone = state.tasks.length > 0 && claimed === state.tasks.length;
+  const paid = state.emeraldRewardDay === state.day;
+  banner.className = 'emerald-banner' + (allDone ? ' done' : '');
+  banner.textContent = paid
+    ? `💎 Награда за день получена! Завтра можно заработать ещё +${UPGRADE_DAILY_REWARD}.`
+    : (allDone
+        ? `🎉 Все задания выполнены! Заберите награду: +${UPGRADE_DAILY_REWARD} 💎`
+        : `💎 Выполните все задания дня (${claimed}/${state.tasks.length}) и получите +${UPGRADE_DAILY_REWARD} изумрудов`);
+
+  $('#upgrade-list').innerHTML = UPGRADES.map(u => {
+    const lvl = upgradeLevel(u.id);
+    const maxed = lvl >= u.costs.length;
+    const cost = maxed ? 0 : u.costs[lvl];
+    const locked = u.requires && upgradeLevel(u.requires) < 1;
+    const canBuy = !maxed && !locked && state.emeralds >= cost;
+    return `<div class="upgrade-card ${maxed ? 'maxed' : ''} ${locked ? 'locked' : ''}">
+      <div class="upgrade-icon">${u.icon}</div>
+      <div class="upgrade-info">
+        <div class="upgrade-top"><span class="upgrade-name">${u.name}</span>
+          <span class="upgrade-lvl">${lvl}/${u.costs.length}</span></div>
+        <div class="upgrade-desc">${u.desc}</div>
+        ${u.detail ? `<div class="upgrade-detail">${u.detail}</div>` : ''}
+      </div>
+      <button class="upgrade-buy" data-action="buy-upgrade" data-id="${u.id}" ${canBuy ? '' : 'disabled'}>
+        ${maxed ? 'MAX' : (locked ? '🔒' : `💎 ${cost}`)}</button>
+    </div>`;
+  }).join('');
+}
+
 function renderSettings() {
   $('#set-sound').checked = state.settings.sound;
   $('#set-animations').checked = state.settings.animations;
@@ -837,7 +993,7 @@ function renderSettings() {
 
 function renderAll() {
   renderHUD(); renderSeedPicker(); renderField(); renderTilePanel();
-  renderBarn(); renderShop(); renderAnimals(); renderAchievements(); renderQuests(); renderSettings();
+  renderBarn(); renderShop(); renderAnimals(); renderAchievements(); renderQuests(); renderUpgrades(); renderSettings();
   updateTimers();
 }
 
@@ -873,6 +1029,7 @@ document.addEventListener('click', e => {
     case 'collect': collectAnimal(Number(id)); break;
     case 'sell': sellProduct(id, true); break;
     case 'claim-task': claimTask(Number(id)); break;
+    case 'buy-upgrade': buyUpgrade(id); break;
   }
 });
 
@@ -897,11 +1054,22 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) tick
 function init() {
   state = loadGame() || createNewGame();
   state.marketMult = marketForDay(state.day);
+  recalcMaxEnergy();
   regenEnergy();
   generateTasks();
+  if (upgradeLevel('offlineAuto') >= 1) {
+    const ready = state.tiles.map((tile, i) => ({ tile, i }))
+      .filter(x => x.i < totalUnlocked() && tileReady(x.tile));
+    ready.forEach(x => harvestTile(x.i, true));
+    if (ready.length) setTimeout(() => toast(`🌙 Ночная бригада собрала ${ready.length} культур`, 'success'), 700);
+  }
+  if (upgradeLevel('autoCollect') >= 1) {
+    const ready = state.animals.filter(a => a.readyAt && a.readyAt <= now());
+    ready.forEach(a => collectAnimal(a.uid, true));
+  }
   renderAll();
   saveGame();
-  lastReadySig = state.tiles.map((t, i) => i < state.unlockedTiles && tileReady(t) ? '1' : '0').join('')
+  lastReadySig = state.tiles.map((t, i) => i < totalUnlocked() && tileReady(t) ? '1' : '0').join('')
     + '|' + state.animals.map(a => a.readyAt && a.readyAt <= now() ? '1' : '0').join('');
   tickTimer = setInterval(tick, 250);
   if (!state.tutorialSeen) {
@@ -909,7 +1077,7 @@ function init() {
     saveGame();
     showHelp();
   } else {
-    const ready = state.tiles.filter((t, i) => i < state.unlockedTiles && tileReady(t)).length;
+    const ready = state.tiles.filter((t, i) => i < totalUnlocked() && tileReady(t)).length;
     if (ready) toast(`✅ Готово к сбору: ${ready} культур`, 'success');
     else toast('💾 Прогресс загружен', 'success');
   }
