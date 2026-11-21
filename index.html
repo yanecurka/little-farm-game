@@ -30,6 +30,7 @@
       <div class="hud-item" title="День"><span>📅</span><strong id="hud-day">1</strong></div>
       <div class="hud-item coins" title="Монеты"><span>🪙</span><strong id="hud-coins">180</strong></div>
       <div class="hud-item" title="Энергия"><span>⚡</span><strong id="hud-energy">100</strong></div>
+      <div class="hud-item emerald" title="Изумруды"><span>💎</span><strong id="hud-emeralds">0</strong></div>
     </div>
   </header>
 
@@ -124,8 +125,17 @@
     <!-- Задания -->
     <section class="screen" id="screen-quests">
       <div class="section-head"><h2>📋 Задания дня</h2></div>
-      <p class="screen-lead">Выполняйте поручения и получайте монеты и опыт. Задания обновляются каждый день, но не выполненные сохраняются.</p>
+      <p class="screen-lead">Выполняйте поручения и получайте монеты и опыт. За все задания дня даются изумруды 💎 — платить не нужно!</p>
+      <div class="emerald-banner" id="emerald-banner"></div>
       <div class="quest-list" id="quest-list"></div>
+    </section>
+
+    <!-- Улучшения за изумруды -->
+    <section class="screen" id="screen-upgrades">
+      <div class="section-head"><h2>💎 Магазин улучшений</h2></div>
+      <div class="emerald-balance" id="emerald-balance">💎 0</div>
+      <p class="screen-lead">Изумруды можно заработать бесплатно: выполняйте все задания дня (+5 💎), повышайте уровень и открывайте достижения. Никаких реальных денег!</p>
+      <div class="upgrade-list" id="upgrade-list"></div>
     </section>
 
     <!-- Настройки -->
@@ -149,7 +159,7 @@
         <button class="wide-btn danger" id="btn-reset">🗑️ Новая игра</button>
       </div>
 
-      <p class="version">Маленькая Ферма · версия 2.0 · офлайн-игра</p>
+      <p class="version">Маленькая Ферма · версия 3.0 · офлайн-игра</p>
     </section>
 
   </main>
@@ -162,6 +172,7 @@
     <button class="tab" data-screen="animals"><span>🐄</span><small>Животные</small></button>
     <button class="tab" data-screen="achievements"><span>🏆</span><small>Достиж.</small></button>
     <button class="tab" data-screen="quests"><span>📋</span><small>Задания</small></button>
+    <button class="tab" data-screen="upgrades"><span>💎</span><small>Улучш.</small></button>
     <button class="tab" data-screen="settings"><span>⚙️</span><small>Ещё</small></button>
   </nav>
 
