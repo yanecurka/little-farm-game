@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#7cb342">
+<meta name="description" content="Маленькая Ферма — офлайн симулятор фермы">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ферма">
+<title>🌿 Маленькая Ферма</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ===== Верхняя панель ===== -->
+  <header class="topbar">
+    <div class="brand"><span class="brand-icon">🌿</span><span>Маленькая Ферма</span></div>
+    <div class="level-row">
+      <strong id="level-label">Уровень 1</strong>
+      <div class="xp-bar"><div class="xp-fill" id="xp-fill"></div></div>
+      <small id="xp-text">0 / 100</small>
+    </div>
+    <div class="hud">
+      <div class="hud-item" title="День"><span>📅</span><strong id="hud-day">1</strong></div>
+      <div class="hud-item coins" title="Монеты"><span>🪙</span><strong id="hud-coins">180</strong></div>
+      <div class="hud-item" title="Энергия"><span>⚡</span><strong id="hud-energy">100</strong></div>
+    </div>
+  </header>
+
+  <!-- ===== Игровые экраны ===== -->
+  <main id="main">
+
+    <!-- Поле -->
+    <section class="screen active" id="screen-field">
+      <div class="day-banner">
+        <div class="weather" id="weather-box">
+          <span class="weather-icon" id="weather-icon">☀️</span>
+          <div>
+            <strong id="weather-name">Солнечно</strong>
+            <small id="weather-desc">Поливайте посевы вручную</small>
+          </div>
+        </div>
+        <div class="energy-box">
+          <div class="energy-label"><span>⚡ Энергия</span><span id="energy-text">100 / 100</span></div>
+          <div class="energy-bar"><div class="energy-fill" id="energy-fill"></div></div>
+          <small class="energy-regen">⚡ Восстанавливается +1 каждые 20 секунд</small>
+        </div>
+      </div>
+
+      <div class="section-head">
+        <h2>🌾 Моё поле <small id="field-progress">6 / 16</small></h2>
+        <button class="mini-btn" id="btn-expand" title="Расширить поле">➕ Расширить</button>
+      </div>
+
+      <div class="toolbar">
+        <div class="toolbar-title">Выберите семена:</div>
+        <div class="seed-picker" id="seed-picker"></div>
+      </div>
+
+      <div class="field-grid" id="field-grid"></div>
+
+      <div class="tile-panel" id="tile-panel">
+        <div class="tile-panel-empty">👆 Выберите растение на поле, чтобы поливать, ускорять рост или собирать урожай</div>
+      </div>
+
+      <button class="next-day-btn" id="btn-next-day">
+        <span class="next-day-icon">🌙</span>
+        <span>Отдых</span>
+        <small>Восстановить энергию, сменить погоду и цены</small>
+      </button>
+    </section>
+
+    <!-- Амбар -->
+    <section class="screen" id="screen-barn">
+      <div class="section-head"><h2>🏚️ Амбар</h2></div>
+      <p class="screen-lead">Здесь хранятся ваши семена и собранная продукция. Продавайте урожай, чтобы заработать монеты.</p>
+      <div class="market-banner" id="market-banner">📈 Цены сегодня: ×1.00</div>
+      <h3 class="subhead">🌱 Семена</h3>
+      <div class="item-list" id="barn-seeds"></div>
+      <h3 class="subhead">📦 Продукция</h3>
+      <div class="item-list" id="barn-products"></div>
+    </section>
+
+    <!-- Магазин -->
+    <section class="screen" id="screen-shop">
+      <div class="section-head"><h2>🛒 Магазин</h2></div>
+      <p class="screen-lead">Покупайте семена, животных и полезные вещи.</p>
+      <h3 class="subhead">🌱 Семена</h3>
+      <div class="shop-list" id="shop-seeds"></div>
+      <h3 class="subhead">🐔 Животные</h3>
+      <div class="shop-list" id="shop-animals"></div>
+      <h3 class="subhead">✨ Прочее</h3>
+      <div class="shop-list" id="shop-misc"></div>
+    </section>
+
+    <!-- Животные -->
+    <section class="screen" id="screen-animals">
+      <div class="section-head">
+        <h2>🐄 Ферма</h2>
+        <button class="mini-btn" id="btn-feed-all">🌾 Покормить всех</button>
+      </div>
+      <p class="screen-lead">Кормите животных каждый день — на следующий день они дадут продукцию. Соберите её и продайте в амбаре.</p>
+      <div class="item-list" id="animal-list"></div>
+    </section>
+
+    <!-- Достижения -->
+    <section class="screen" id="screen-achievements">
+      <div class="section-head"><h2>🏆 Достижения</h2></div>
+      <div class="progress-card">
+        <div class="progress-card-top"><span>Открыто</span><strong id="ach-count">0 / 8</strong></div>
+        <div class="energy-bar big"><div class="energy-fill gold" id="ach-fill"></div></div>
+      </div>
+      <div class="ach-list" id="ach-list"></div>
+      <h3 class="subhead">📊 Статистика</h3>
+      <div class="stats-grid" id="stats-grid"></div>
+    </section>
+
+    <!-- Задания -->
+    <section class="screen" id="screen-quests">
+      <div class="section-head"><h2>📋 Задания дня</h2></div>
+      <p class="screen-lead">Выполняйте поручения и получайте монеты и опыт. Задания обновляются каждый день, но не выполненные сохраняются.</p>
+      <div class="quest-list" id="quest-list"></div>
+    </section>
+
+    <!-- Настройки -->
+    <section class="screen" id="screen-settings">
+      <div class="section-head"><h2>⚙️ Настройки</h2></div>
+
+      <div class="settings-card">
+        <div class="setting-row">
+          <div><strong>🔊 Звук</strong><small>Звуки действий и уведомлений</small></div>
+          <label class="switch"><input type="checkbox" id="set-sound" checked><span class="slider"></span></label>
+        </div>
+        <div class="setting-row">
+          <div><strong>✨ Анимации</strong><small>Плавные переходы и эффекты</small></div>
+          <label class="switch"><input type="checkbox" id="set-animations" checked><span class="slider"></span></label>
+        </div>
+      </div>
+
+      <div class="settings-card">
+        <button class="wide-btn ghost" id="btn-help">❓ Как играть</button>
+        <button class="wide-btn ghost" id="btn-save">💾 Сохранить сейчас</button>
+        <button class="wide-btn danger" id="btn-reset">🗑️ Новая игра</button>
+      </div>
+
+      <p class="version">Маленькая Ферма · версия 1.0 · офлайн-игра</p>
+    </section>
+
+  </main>
+
+  <!-- ===== Нижняя навигация ===== -->
+  <nav class="tabbar">
+    <button class="tab active" data-screen="field"><span>🌾</span><small>Поле</small></button>
+    <button class="tab" data-screen="barn"><span>🏚️</span><small>Амбар</small></button>
+    <button class="tab" data-screen="shop"><span>🛒</span><small>Магазин</small></button>
+    <button class="tab" data-screen="animals"><span>🐄</span><small>Животные</small></button>
+    <button class="tab" data-screen="achievements"><span>🏆</span><small>Достиж.</small></button>
+    <button class="tab" data-screen="quests"><span>📋</span><small>Задания</small></button>
+    <button class="tab" data-screen="settings"><span>⚙️</span><small>Ещё</small></button>
+  </nav>
+
+  <!-- ===== Всплывающие окна ===== -->
+  <div class="toast" id="toast"></div>
+
+  <div class="modal-overlay hidden" id="modal-overlay">
+    <div class="modal" id="modal">
+      <div class="modal-icon" id="modal-icon">❓</div>
+      <h3 id="modal-title">Заголовок</h3>
+      <div class="modal-body" id="modal-body"></div>
+      <div class="modal-actions" id="modal-actions"></div>
+    </div>
+  </div>
+
+</div>
+
+<script src="data.js"></script>
+<script src="game.js"></script>
+<script>
+  // PWA: registers the service worker on localhost or HTTPS (secure contexts)
+  if ('serviceWorker' in navigator &&
+      (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function () {});
+    });
+  }
+</script>
+</body>
+</html>
