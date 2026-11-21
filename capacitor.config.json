@@ -1,0 +1,11 @@
+{
+  "appId": "com.yanecurka.littlefarm",
+  "appName": "Маленькая Ферма",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": true
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}
