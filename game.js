@@ -17,6 +17,7 @@ let toastTimer = null;
 let audioCtx = null;
 let lastReadySig = '';
 let tickTimer = null;
+let modalKind = '';
 
 const $ = sel => document.querySelector(sel);
 const $$ = sel => Array.from(document.querySelectorAll(sel));
@@ -208,7 +209,8 @@ function toast(text, type = '') {
   toastTimer = setTimeout(() => { el.className = 'toast'; }, 2400);
 }
 
-function openModal({ icon, title, body, actions }) {
+function openModal({ icon, title, body, actions, kind }) {
+  modalKind = kind || '';
   $('#modal-icon').textContent = icon || '❓';
   $('#modal-title').textContent = title || '';
   $('#modal-body').innerHTML = body || '';
@@ -223,27 +225,44 @@ function openModal({ icon, title, body, actions }) {
   });
   $('#modal-overlay').classList.remove('hidden');
 }
-const closeModal = () => $('#modal-overlay').classList.add('hidden');
+function closeModal() {
+  $('#modal-overlay').classList.add('hidden');
+  modalKind = '';
+}
 
-function showHelp() {
-  openModal({
-    icon: '🌿', title: 'Как играть',
-    body: `
-      <p><strong>Главное:</strong> растения растут в реальном времени — даже когда игра закрыта. На плитке виден таймер до созревания.</p>
-      <ul>
-        <li>🌱 <strong>Посадите:</strong> выберите семена и нажмите на пустой участок.</li>
-        <li>💧 <strong>Полив</strong> за 2⚡ срезает 20% оставшегося времени.</li>
-        <li>⚡ <strong>Ускорение</strong> за энергию делает растение спелым мгновенно. Стоимость зависит от остатка времени.</li>
-        <li>🧪 <strong>Удобрение</strong> срезает 40% времени и даёт +1 урожай.</li>
-        <li>🧺 <strong>Сбор:</strong> нажмите на спелое растение или кнопку в панели.</li>
-        <li>🐔 <strong>Животные:</strong> покормите — через таймер дадут продукцию. Соберите и продайте.</li>
-        <li>⚡ <strong>Энергия</strong> восстанавливается сама: +1 каждые 20 секунд. Кнопка «Отдых» восстанавливает её полностью и меняет погоду с ценами.</li>
-        <li>📋 <strong>Задания</strong> и 🏆 достижения дают монеты и опыт. Уровень увеличивает запас энергии.</li>
-        <li>💎 <strong>Изумруды</strong> — премиальная валюта, но она полностью бесплатна: за все задания дня (+5), за уровни и достижения. Тратьте её во вкладке «Улучш.» на автосбор, автокорм, быструю энергию и другое.</li>
-      </ul>
-      <p>📈 Цены на продукцию меняются каждый день — продавайте выгоднее!</p>`,
-    actions: [{ label: 'Понятно!', cls: 'btn-primary' }],
-  });
+function showHelp(page = 1) {
+  const pages = [
+    {
+      title: 'Как играть · 1/2',
+      body: `
+        <p><strong>Главное:</strong> растения растут в реальном времени — даже когда игра закрыта. На плитке виден таймер.</p>
+        <ul>
+          <li>🌱 <strong>Посев:</strong> выберите семена вверху и нажмите на пустой участок.</li>
+          <li>⏱️ <strong>Таймер:</strong> на каждом растении показано время до созревания.</li>
+          <li>👆 <strong>Нажмите на растение</strong> — откроется окно с действиями: полив, ускорение, удобрение, уборка.</li>
+          <li>💧 <strong>Полив</strong> за 2⚡ срезает 20% времени.</li>
+          <li>⚡ <strong>Ускорение</strong> за энергию делает растение спелым сразу.</li>
+          <li>🧺 <strong>Сбор:</strong> нажмите на спелое растение и заберите урожай.</li>
+        </ul>`,
+      actions: [{ label: 'Далее →', cls: 'btn-primary', keepOpen: true, onClick: () => showHelp(2) }],
+    },
+    {
+      title: 'Как играть · 2/2',
+      body: `
+        <ul>
+          <li>🐔 <strong>Животные:</strong> покормите — через таймер дадут продукцию. Соберите и продайте в амбаре.</li>
+          <li>⚡ <strong>Энергия</strong> восстанавливается сама (+1 каждые 20 сек) или полностью через «Отдых».</li>
+          <li>📈 <strong>Цены</strong> меняются каждый день — продавайте, когда спрос высокий.</li>
+          <li>📋 <strong>Задания</strong> и 🏆 достижения дают монеты, опыт и изумруды.</li>
+          <li>💎 <strong>Изумруды</strong> — бесплатная валюта: +5 за все задания дня, +2 за уровень, +1 за достижение.</li>
+          <li>🛠️ Тратьте их во вкладке «Улучш.»: автосбор, автокорм, быстрая энергия и другое.</li>
+        </ul>
+        <p class="modal-page">Прогресс сохраняется автоматически на этом устройстве.</p>`,
+      actions: [{ label: 'Понятно!', cls: 'btn-primary' }, { label: '← Назад', cls: 'btn-secondary', keepOpen: true, onClick: () => showHelp(1) }],
+    },
+  ];
+  const p = pages[page - 1] || pages[0];
+  openModal({ icon: '🌿', title: p.title, body: p.body, actions: p.actions, kind: 'help' });
 }
 
 // ---------- Опыт и уровни ----------
@@ -433,10 +452,7 @@ function tileClick(index) {
   if (index >= totalUnlocked()) { toast('Участок закрыт — расширьте поле', 'error'); return; }
   if (!t.crop) { plantTile(index); return; }
   if (tileReady(t)) { harvestTile(index); return; }
-  selectedTile = index;
-  renderField();
-  renderTilePanel();
-  playSound('water');
+  openTileModal(index);
 }
 
 function waterTile(index) {
@@ -816,34 +832,48 @@ function renderField() {
   }).join('');
 }
 
-function renderTilePanel() {
-  const box = $('#tile-panel');
-  const t = state.tiles[selectedTile];
-  if (!t || !t.crop || selectedTile >= totalUnlocked()) {
-    box.innerHTML = '<div class="tile-panel-empty">👆 Нажмите на растущее растение, чтобы поливать его, удобрять или ускорять рост за энергию</div>';
-    return;
-  }
+// Окно действий с растением (вместо нижней панели)
+function openTileModal(index) {
+  selectedTile = index;
+  const t = state.tiles[index];
+  if (!t || !t.crop || index >= totalUnlocked()) { closeModal(); return; }
   const crop = getCrop(t.crop);
-  if (tileReady(t)) {
-    box.innerHTML = `<div class="tile-panel-head"><span class="panel-emoji">${crop.emoji}</span>
-      <div><strong>${crop.name}</strong><small>Спело! Урожай ×${bonusYield(t)}</small></div>
-      <div class="panel-timer"><strong>✅</strong><small>готово</small></div></div>
-      <div class="panel-actions"><button class="panel-btn harvest" data-action="harvest" data-index="${selectedTile}">🧺 Собрать урожай</button></div>`;
-    return;
-  }
+  const ready = tileReady(t);
   const cost = boostCost(t);
   const fert = state.inventory.items.fertilizer || 0;
-  box.innerHTML = `<div class="tile-panel-head"><span class="panel-emoji">🌱</span>
-    <div><strong>${crop.name}</strong><small>${t.waterCount ? '💧 полито · ' : ''}${t.fertilized ? '🧪 удобрено' : 'без удобрений'}</small></div>
-    <div class="panel-timer"><strong data-timer="panel">${formatTime(tileRemaining(t))}</strong><small>до созревания</small>
-      <div class="quest-bar"><i data-progress="panel"></i></div></div></div>
-    <div class="panel-actions">
-      <button class="panel-btn water" data-action="water" data-index="${selectedTile}" ${state.energy < 2 ? 'disabled' : ''}>💧 Полить<small>−20% времени · 2⚡</small></button>
-      <button class="panel-btn boost" data-action="boost" data-index="${selectedTile}" ${state.energy < cost ? 'disabled' : ''}>⚡ Ускорить<small>сразу · ${cost}⚡</small></button>
-      <button class="panel-btn fert" data-action="fertilize" data-index="${selectedTile}" ${fert <= 0 ? 'disabled' : ''}>🧪 Удобрить<small>×${fert} · −40%</small></button>
-      <button class="panel-btn clear" data-action="clear" data-index="${selectedTile}">🧹 Убрать<small>вернуть семя · 1⚡</small></button>
-    </div>`;
+  const progress = clamp(100 - (tileRemaining(t) / Math.max(1, t.readyAt - t.plantedAt)) * 100, 0, 100);
+
+  let body;
+  if (ready) {
+    body = `<p style="text-align:center">Спело! Урожай: <strong>×${bonusYield(t)}</strong></p>
+      <div class="modal-action-grid">
+        <button class="modal-action harvest" data-action="harvest" data-index="${index}">🧺 Собрать урожай</button>
+      </div>`;
+  } else {
+    body = `<div class="modal-timer-big" data-timer="panel">${formatTime(tileRemaining(t))}</div>
+      <div class="modal-timer-label">до созревания · ${t.waterCount ? '💧 полито' : 'не поливалось'}${t.fertilized ? ' · 🧪 удобрено' : ''}</div>
+      <div class="modal-progress"><i data-progress="panel" style="width:${progress}%"></i></div>
+      <div class="modal-action-grid">
+        <button class="modal-action water" data-action="water" data-index="${index}" ${state.energy < 2 ? 'disabled' : ''}>💧 Полить<small>−20% времени · 2⚡</small></button>
+        <button class="modal-action boost" data-action="boost" data-index="${index}" ${state.energy < cost ? 'disabled' : ''}>⚡ Ускорить<small>сразу · ${cost}⚡</small></button>
+        <button class="modal-action fert" data-action="fertilize" data-index="${index}" ${fert <= 0 ? 'disabled' : ''}>🧪 Удобрить<small>−40% · ×${fert}</small></button>
+        <button class="modal-action clear" data-action="clear" data-index="${index}">🧹 Убрать<small>вернуть семя · 1⚡</small></button>
+      </div>`;
+  }
+
+  openModal({
+    icon: ready ? crop.emoji : '🌱',
+    title: `${crop.name} · участок ${index + 1}`,
+    body,
+    actions: [{ label: 'Закрыть', cls: 'btn-secondary' }],
+    kind: 'tile',
+  });
   updateTimers();
+}
+
+// Обновляем открытое окно растения после действий/тика
+function renderTilePanel() {
+  if (modalKind === 'tile' && selectedTile >= 0) openTileModal(selectedTile);
 }
 
 function renderBarn() {
@@ -1000,7 +1030,8 @@ function renderAll() {
 function switchScreen(name) {
   $$('.screen').forEach(s => s.classList.toggle('active', s.id === `screen-${name}`));
   $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.screen === name));
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  const main = $('#main');
+  if (main) main.scrollTop = 0;
 }
 
 // ---------- События ----------
@@ -1012,11 +1043,11 @@ document.addEventListener('click', e => {
   const index = Number(el.dataset.index);
   switch (action) {
     case 'tile': tileClick(index); break;
-    case 'harvest': harvestTile(index); break;
+    case 'harvest': harvestTile(index); if (modalKind === 'tile') closeModal(); break;
     case 'water': waterTile(index); break;
     case 'boost': boostTile(index); break;
     case 'fertilize': fertilizeTile(index); break;
-    case 'clear': clearTile(index); break;
+    case 'clear': clearTile(index); if (modalKind === 'tile') closeModal(); break;
     case 'select-seed':
     case 'select-seed-go':
       selectedSeed = id; renderSeedPicker(); switchScreen('field');
