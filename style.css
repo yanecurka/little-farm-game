@@ -23,7 +23,9 @@
 html, body {
   margin: 0;
   padding: 0;
-  min-height: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   background: var(--bg);
   color: var(--text);
@@ -37,18 +39,20 @@ body {
 
 #app {
   max-width: 520px;
+  height: 100vh;
+  height: 100dvh;
   margin: 0 auto;
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   background: var(--bg);
   box-shadow: 0 0 40px rgba(0, 0, 0, .06);
 }
 
 /* ---------- Верхняя панель ---------- */
 .topbar {
-  position: sticky;
-  top: 0;
+  flex: 0 0 auto;
+  position: relative;
   z-index: 20;
   background: linear-gradient(135deg, var(--green), var(--green-dark));
   color: #fff;
@@ -87,7 +91,15 @@ body {
 .hud-item.coins strong { color: #ffe082; }
 
 /* ---------- Экраны ---------- */
-#main { flex: 1; padding: 14px 14px 90px; overflow-x: hidden; }
+#main {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 14px 14px 18px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
 
 .screen { display: none; animation: fade .25s ease; }
 .screen.active { display: block; }
@@ -323,12 +335,10 @@ body {
 
 /* ---------- Нижняя навигация ---------- */
 .tabbar {
-  position: fixed;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 30;
   width: 100%;
-  max-width: 520px;
   background: rgba(255, 255, 255, .97);
   backdrop-filter: blur(10px);
   border-top: 1px solid #e8ede2;
@@ -369,15 +379,38 @@ body {
 
 .modal-overlay { position: fixed; inset: 0; background: rgba(20, 30, 15, .55); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(3px); }
 .modal-overlay.hidden { display: none; }
-.modal { background: #fff; border-radius: 22px; padding: 24px 20px 18px; width: 100%; max-width: 360px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,.3); animation: pop .25s ease; }
+.modal {
+  background: #fff;
+  border-radius: 22px;
+  padding: 18px 18px 16px;
+  width: 100%;
+  max-width: 360px;
+  max-height: 86dvh;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0,0,0,.3);
+  animation: pop .25s ease;
+  overflow: hidden;
+}
 @keyframes pop { from { transform: scale(.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-.modal-icon { font-size: 46px; }
-.modal h3 { margin: 8px 0 10px; font-size: 19px; }
-.modal-body { font-size: 13px; line-height: 1.6; color: var(--muted); text-align: left; }
+.modal-icon { font-size: 40px; flex: 0 0 auto; }
+.modal h3 { margin: 6px 0 8px; font-size: 18px; flex: 0 0 auto; }
+.modal-body {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--muted);
+  text-align: left;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 2px;
+}
 .modal-body p { margin: 0 0 8px; }
 .modal-body ul { padding-left: 18px; margin: 6px 0; }
 .modal-body li { margin-bottom: 5px; }
-.modal-actions { display: flex; gap: 9px; margin-top: 18px; }
+.modal-actions { display: flex; gap: 9px; margin-top: 12px; flex: 0 0 auto; }
 .modal-actions button { flex: 1; border: none; border-radius: 12px; padding: 12px; font-weight: 700; cursor: pointer; font-size: 14px; }
 .btn-primary { background: var(--green); color: #fff; }
 .btn-secondary { background: #eef1e9; color: var(--text); }
@@ -524,6 +557,60 @@ body.no-animations *, body.no-animations *::before, body.no-animations *::after 
 .tab small { font-size: 8px; }
 .tab span { font-size: 18px; }
 .hud-item strong { font-size: 13px; }
+
+/* ============================================================
+   v4 — окно действий с растением, адаптив под телефон
+   ============================================================ */
+
+.modal-timer-big { font-size: 30px; font-weight: 900; color: var(--green-dark); text-align: center; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.modal-timer-label { text-align: center; font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+.modal-progress { height: 10px; background: #eef1e9; border-radius: 99px; overflow: hidden; margin: 0 0 12px; }
+.modal-progress i { display: block; height: 100%; background: linear-gradient(90deg, #a5d6a7, #66bb6a); border-radius: 99px; }
+
+.modal-action-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.modal-action {
+  border: none;
+  border-radius: 12px;
+  padding: 10px 8px;
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 13px;
+  color: var(--text);
+  background: #eef2e8;
+  text-align: center;
+}
+.modal-action:active { transform: scale(.96); }
+.modal-action small { display: block; font-size: 10px; font-weight: 600; opacity: .78; margin-top: 3px; }
+.modal-action.water { background: #e3f2fd; color: #1565c0; }
+.modal-action.boost { background: #fff3e0; color: #e65100; }
+.modal-action.fert { background: #f3e5f5; color: #6a1b9a; }
+.modal-action.clear { background: #fbe9e7; color: #bf360c; }
+.modal-action.harvest { grid-column: 1 / -1; background: var(--green); color: #fff; font-size: 15px; padding: 13px; }
+.modal-action:disabled { opacity: .45; cursor: not-allowed; }
+
+.modal-page { font-size: 11px; color: var(--muted); text-align: center; margin-top: 10px; }
+
+/* Маленькие экраны и низкая высота (старые телефоны) */
+@media (max-height: 700px) {
+  .modal { padding: 12px 14px; max-height: 92dvh; border-radius: 18px; }
+  .modal-icon { font-size: 30px; }
+  .modal h3 { font-size: 16px; margin: 4px 0 6px; }
+  .modal-body { font-size: 11.5px; line-height: 1.45; }
+  .modal-actions button { padding: 10px !important; }
+  .topbar { padding-top: calc(6px + env(safe-area-inset-top)); padding-bottom: 6px; }
+  .brand { font-size: 15px; }
+  .hud-item { padding: 5px 4px; }
+  .tab { padding: 7px 1px 6px; }
+  .tab span { font-size: 17px; }
+}
+
+@media (max-width: 360px) {
+  .hud-item { font-size: 11px; gap: 3px; }
+  .hud-item span { font-size: 12px; }
+  .hud-item strong { font-size: 12px; }
+  .tab small { font-size: 8px; }
+  .modal-action { font-size: 12px; }
+}
 
 /* ---------- ПК: чуть больше воздуха ---------- */
 @media (min-width: 600px) {
